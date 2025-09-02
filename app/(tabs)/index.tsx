@@ -1,75 +1,189 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Colors } from '@/constants/Colors';
+import { useAppColorScheme } from '@/hooks/useAppColorScheme';
+import React, { useState, useMemo, useCallback } from 'react';
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Toast, ToastType } from '@/components/Toast';
+import { HapticFeedback } from '@/utils/haptics';
+import { Task } from '@/types/task';
+import { TaskHeader } from '@/components/TaskHeader';
+import { AddTaskForm } from '@/components/AddTaskForm';
+import { TaskSection } from '@/components/TaskSection';
+import { EmptyState } from '@/components/EmptyState';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+export default function TaskManagerScreen() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [newTaskText, setNewTaskText] = useState('');
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: ToastType;
+  }>({
+    visible: false,
+    message: '',
+    type: 'info',
+  });
+  const colorScheme = useAppColorScheme();
+  const colors = Colors[colorScheme];
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+  const memoizedColors = useMemo(() => colors, [colors]);
+
+  const showToast = useCallback((message: string, type: ToastType) => {
+    setToast({ visible: true, message, type });
+  }, []);
+
+  const hideToast = useCallback(() => {
+    setToast(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  const addTask = useCallback(() => {
+    if (newTaskText.trim().length === 0) {
+      showToast('Please enter a task description', 'warning');
+      HapticFeedback.warning();
+      return;
+    }
+
+    const newTask: Task = {
+      id: Date.now().toString(),
+      text: newTaskText.trim(),
+      completed: false,
+      createdAt: new Date(),
+    };
+
+    setTasks(prevTasks => [newTask, ...prevTasks]);
+    setNewTaskText('');
+    
+    showToast('Task added successfully!', 'success');
+    HapticFeedback.success();
+  }, [newTaskText, showToast]);
+
+  const toggleTask = useCallback((taskId: string) => {
+    setTasks(prevTasks => prevTasks.map(task => {
+      if (task.id === taskId) {
+        const newCompleted = !task.completed;
+        if (newCompleted) {
+          HapticFeedback.success();
+          showToast('Task marked as completed!', 'success');
+        } else {
+          HapticFeedback.light();
+          showToast('Task marked as incomplete', 'info');
+        }
+        return { ...task, completed: newCompleted };
+      }
+      return task;
+    }));
+  }, [showToast]);
+
+  const deleteTask = useCallback((taskId: string) => {
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+    
+    showToast('Task deleted successfully!', 'error');
+    HapticFeedback.medium();
+  }, [showToast]);
+
+  const completedTasks = useMemo(() => tasks.filter(task => task.completed), [tasks]);
+  const incompleteTasks = useMemo(() => tasks.filter(task => !task.completed), [tasks]);
+
+  const flatListData = useMemo(() => {
+    if (tasks.length === 0) {
+      return [];
+    }
+    
+    return [
+      { type: 'section', title: 'Active Tasks', icon: 'time-outline', iconColor: memoizedColors.header, tasks: incompleteTasks, key: 'active' },
+      { type: 'section', title: 'Completed Tasks', icon: 'checkmark-circle-outline', iconColor: '#4CAF50', tasks: completedTasks, key: 'completed' }
+    ];
+  }, [tasks.length, memoizedColors.header, incompleteTasks, completedTasks]);
+
+  const renderItem = useCallback(({ item }: { item: any }) => {
+    if (item.type === 'section') {
+      if (item.tasks.length === 0) return null;
+      return (
+        <TaskSection
+          title={item.title}
+          icon={item.icon}
+          iconColor={item.iconColor}
+          tasks={item.tasks}
+          onToggle={toggleTask}
+          onDelete={deleteTask}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      );
+    }
+    return null;
+  }, [toggleTask, deleteTask]);
+
+  const keyExtractor = useCallback((item: any) => item.key, []);
+
+  const ListEmptyComponent = useCallback(() => {
+    return <EmptyState />;
+  }, []);
+
+  return (
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: memoizedColors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
+      
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={hideToast}
+        duration={3000}
+      />
+      
+      <TaskHeader
+        totalTasks={tasks.length}
+        completedTasks={completedTasks.length}
+        incompleteTasks={incompleteTasks.length}
+      />
+
+      <AddTaskForm
+        newTaskText={newTaskText}
+        onTaskTextChange={setNewTaskText}
+        onAddTask={addTask}
+      />
+
+      <FlatList 
+        data={flatListData}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        style={styles.taskListsContainer}
+        contentContainerStyle={[
+          styles.taskListsContent,
+          tasks.length === 0 && { flexGrow: 1 }
+        ]}
+        showsVerticalScrollIndicator={true}
+        ListEmptyComponent={ListEmptyComponent}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        initialNumToRender={5}
+      />
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  taskListsContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  taskListsContent: {
+    paddingBottom: 20,
   },
 });
