@@ -197,10 +197,6 @@ TaskManagerApp/
 - **Lazy Loading**: Reduced initial bundle size
 - **Image Optimization**: Efficient asset loading
 
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ## 🤝 Contributing
 
 1. Fork the repository
